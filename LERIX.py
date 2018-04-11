@@ -33,17 +33,19 @@ class Lerix:
     def __init__(self):
         self.scans         = {}
         self.keys          = {}
+
         self.elastic_scans = []
-        self.nixs_scans    = []
-        self.NIXS_name     = 'nixs'
-        self.wide_name     = 'wide'
         self.elastic_name  = 'elastic'
+        self.nixs_scans    = []
+        self.nixs_name     = 'nixs'
+        self.wide_scans    = []
+        self.wide_name     = 'wide'
         self.scan_name     = []
+
         self.energy        = []
-        self.energy2       = []
         self.signals       = []
         self.errors        = []
-        self.groups        = {}
+        #self.groups        = {}
         self.tth           = []
         self.resolution    = []
         self.E0            = []
@@ -161,24 +163,28 @@ class Lerix:
         """get the scan number, name, type and file extention from the title of
         the scan assuming typical format e.g. elastic.0001, nixs.0001"""
         fn,fext = os.path.splitext(file)
-        scan_type = fn
+        if str.lower(fn)==str.lower(self.nixs_name):
+            scan_type = 'nixs'
+        elif str.lower(fn)==str.lower(self.elastic_name):
+            scan_type = 'elastic'
+        elif str.lower(fn)==str.lower(self.wide_name):
+            scan_type = 'wide'
         scan_number = fext.lstrip('.')
         scan_number = int(scan_number)
         scan_name = scan_type + '%04d' %scan_number
-        return scan_number, scan_name, scan_type, fext
+        return scan_number, scan_name, scan_type, fext, file
 
     def sort_dir(self, dir):
         """Returns a list of directory contents after filtering out scans without
         the correct format e.g. 'elastic.0001, nixs.0001'"""
         dir_scans = []
         for file in os.listdir(dir):
-            file = str.lower(file)
-            fn,fext = os.path.splitext(file)
-            if not file.startswith('.'):
+            file_lc = str.lower(file)
+            fn,fext = os.path.splitext(file_lc)
+            if not file_lc.startswith('.'):
                     if fext.lstrip('.').isdigit():
-                        if not file.startswith('allign'):
-                            if not file.startswith('align'):
-                                dir_scans.append(file)
+                        if file_lc.startswith(self.nixs_name) or file_lc.startswith(self.elastic_name) or file_lc.startswith(self.wide_name):
+                            dir_scans.append(file)
         sorted_dir = sorted(dir_scans, key=lambda x: os.path.splitext(x)[1])
         return sorted_dir
 
@@ -189,7 +195,7 @@ class Lerix:
         elif not os.path.isfile(dir+'/'+self.elastic_name+'.0001'):
             print('The directory you supplied does not have a elastic.0001 file!!!')
             return False
-        elif not os.path.isfile(dir+'/'+self.NIXS_name+'.0001'):
+        elif not os.path.isfile(dir+'/'+self.nixs_name+'.0001'):
             print("The directory you supplied does not have a NIXS.0001 file!!!\Your diretory must be in the correct format")
             return False
         elif not os.path.isfile(dir+'/'+self.wide_name+'.0001'):
@@ -258,10 +264,10 @@ class Lerix:
         self.scans[scan_info[1]].errors  = np.array(np.sqrt(np.absolute(self.scans[scan_info[1]].signals)))
         if scan_info[2]=='elastic':
             self.get_cenoms(scan_info)
-        elif scan_info[2]=='NIXS':
+        elif scan_info[2]=='nixs':
             #create empty array with shape energy.v.signals
             eloss = np.zeros(self.scans[scan_info[1]].signals.shape)
-            self.scans[scan_info[1]].tth = np.array(list(range(9,180,9))) #assign tth to each scan
+            self.scans[scan_info[1]].tth = list(range(9,180,9)) #assign tth to each scan
             self.tth = list(range(9,180,9)) #assign tth to self
             if valid_elastic=='True':
                 for analyzer in range(19):
@@ -315,13 +321,13 @@ class Lerix:
     ################################################################################
     # Begin the reading
     ################################################################################
-    def load_scan(self,dir,NIXS_name='NIXS',wide_name='wide',elastic_name='elastic',scan_numbers='all',H5=False):
+    def load_scan(self,dir,nixs_name='NIXS',wide_name='wide',elastic_name='elastic',scan_numbers='all',H5=False):
         """Function to load scan data from a typical APS 20ID Non-Resonant inelastic
         X-ray scattering experiment. With data in the form of elastic.0001, allign.0001
         and NIXS.0001. Function reteurns the averaged energy loss, signals, errors, E0
         and 2theta angles for the scans in the chosen directory."""
 
-        self.NIXS_name = str.lower(NIXS_name)
+        self.nixs_name = str.lower(nixs_name)
         self.wide_name = str.lower(wide_name)
         self.elastic_name = str.lower(elastic_name)
 
@@ -334,8 +340,8 @@ class Lerix:
 
         #sort the directory so that scans are in order, determine number of scans
         #open list to be filled with the elastic/nixs scan names
-        sorted_dir = self.sort_dir(dir)
-        number_of_scans = len(glob.glob(dir+'/elastic*'))-1 #number of ela scans
+        sorted_dir = self.sort_dir(dir) #returns all the scan names
+        number_of_scans = len(glob.glob(dir+'/'+self.nixs_name+'*'))-1 #number of nixs scans
         self.elastic_scans = []
         self.nixs_scans = []
         #self.keys = {"eloss":np.array, "energy":np.array, "signals":np.array, "errors":np.array,"E0":np.float, "tth":np.array} #,"resolution":array }
@@ -351,11 +357,18 @@ class Lerix:
                     self.scans[scan_info[1]].scan_type = scan_info[2]
                     self.scans[scan_info[1]].scan_number = scan_info[0]
 
-                if scan_info[2]=='NIXS':
+                if scan_info[2]=='nixs':
                     self.nixs_scans.append(file)
                     self.scans[scan_info[1]] = scan #self.scans {} in class _init_
                     self.scans[scan_info[1]].scan_type = scan_info[2]
                     self.scans[scan_info[1]].scan_number = scan_info[0]
+
+                if scan_info[2]=='wide':
+                    self.wide_scans.append(file)
+                    self.scans[scan_info[1]] = scan #self.scans {} in class _init_
+                    self.scans[scan_info[1]].scan_type = scan_info[2]
+                    self.scans[scan_info[1]].scan_number = scan_info[0]
+
                 else:
                     continue
 
@@ -363,9 +376,9 @@ class Lerix:
         #if there isn't a corresponing nixs file - don't bother
         for file in self.elastic_scans:
             scan_info = self.scan_info(file)
-            corresponding_nixs = dir+'/nixs'+scan_info[3]
+            corresponding_nixs = dir+'/'+self.nixs_name+scan_info[3]
             if os.path.isfile(corresponding_nixs):
-                print("{} {}".format("Reading elastic scan number: ", file))
+                print("{} {}".format("Reading elastic scan name: ", file))
                 self.read_scans(dir,file)
             else:
                 continue
@@ -374,13 +387,13 @@ class Lerix:
         #running average cenoms and tell the user.
         for file in self.nixs_scans:
             scan_info = self.scan_info(file)
-            corresponding_elastic = dir+'/elastic'+scan_info[3]
+            corresponding_elastic = dir+'/'+self.elastic_name+scan_info[3]
             if os.path.isfile(corresponding_elastic):
-                print("{} {}".format("Reading NIXS scan number: ", file))
+                print("{} {}".format("Reading NIXS scan name: ", file))
                 self.read_scans(dir,file)
             elif not os.path.isfile(corresponding_elastic):
                 print("{} {} {}".format("\nWARNING:", scan_info[1],"has no corresponding elastic - finding eloss by average elastic values!"))
-                print("{} {}".format("Reading NIXS scan number: ", file))
+                print("{} {}".format("Reading NIXS scan name: ", file))
                 self.read_scans(dir,file,valid_elastic='False')
 
         #call function to calculate the average values over the scans - all by default
