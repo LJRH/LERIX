@@ -35,7 +35,7 @@ class Lerix:
         self.keys          = {}
         self.elastic_scans = []
         self.nixs_scans    = []
-        self.NIXS_name     = 'NIXS'
+        self.NIXS_name     = 'nixs'
         self.wide_name     = 'wide'
         self.elastic_name  = 'elastic'
         self.scan_name     = []
@@ -172,11 +172,13 @@ class Lerix:
         the correct format e.g. 'elastic.0001, nixs.0001'"""
         dir_scans = []
         for file in os.listdir(dir):
+            file = str.lower(file)
             fn,fext = os.path.splitext(file)
             if not file.startswith('.'):
                     if fext.lstrip('.').isdigit():
                         if not file.startswith('allign'):
-                            dir_scans.append(file)
+                            if not file.startswith('align'):
+                                dir_scans.append(file)
         sorted_dir = sorted(dir_scans, key=lambda x: os.path.splitext(x)[1])
         return sorted_dir
 
@@ -313,11 +315,15 @@ class Lerix:
     ################################################################################
     # Begin the reading
     ################################################################################
-    def load_scan(self,dir,NIXS_name,wide_name,elastic_name,scan_numbers='all',H5=False):
+    def load_scan(self,dir,NIXS_name='NIXS',wide_name='wide',elastic_name='elastic',scan_numbers='all',H5=False):
         """Function to load scan data from a typical APS 20ID Non-Resonant inelastic
         X-ray scattering experiment. With data in the form of elastic.0001, allign.0001
         and NIXS.0001. Function reteurns the averaged energy loss, signals, errors, E0
         and 2theta angles for the scans in the chosen directory."""
+
+        self.NIXS_name = str.lower(NIXS_name)
+        self.wide_name = str.lower(wide_name)
+        self.elastic_name = str.lower(elastic_name)
 
         #check dir location
         if not self.isValidDir(dir):
