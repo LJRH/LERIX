@@ -35,6 +35,9 @@ class Lerix:
         self.keys          = {}
         self.elastic_scans = []
         self.nixs_scans    = []
+        self.NIXS_name     = 'NIXS'
+        self.wide_name     = 'wide'
+        self.elastic_name  = 'elastic'
         self.scan_name     = []
         self.energy        = []
         self.energy2       = []
@@ -181,14 +184,18 @@ class Lerix:
         if not os.path.isdir(dir):
             print('Check the directory you have supplied')
             return False
-        elif not os.path.isfile(dir+'/elastic.0001'):
+        elif not os.path.isfile(dir+'/'+self.elastic_name+'.0001'):
             print('The directory you supplied does not have a elastic.0001 file!!!')
             return False
-        elif not os.path.isfile(dir+'/NIXS.0001'):
+        elif not os.path.isfile(dir+'/'+self.NIXS_name+'.0001'):
             print("The directory you supplied does not have a NIXS.0001 file!!!\Your diretory must be in the correct format")
             return False
+        elif not os.path.isfile(dir+'/'+self.wide_name+'.0001'):
+            print("No wide scans found. Continuing...")
+            return True
         else:
             return True
+
 
     def write_H5scanData(self,dir,H5file,averaged='False'):
         sample_name = os.path.basename(dir)
@@ -306,7 +313,7 @@ class Lerix:
     ################################################################################
     # Begin the reading
     ################################################################################
-    def load_scan(self,dir,scan_numbers='all',H5=False):
+    def load_scan(self,dir,NIXS_name,wide_name,elastic_name,scan_numbers='all',H5=False):
         """Function to load scan data from a typical APS 20ID Non-Resonant inelastic
         X-ray scattering experiment. With data in the form of elastic.0001, allign.0001
         and NIXS.0001. Function reteurns the averaged energy loss, signals, errors, E0
