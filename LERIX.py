@@ -193,10 +193,10 @@ class Lerix:
             print('Check the directory you have supplied')
             return False
         elif not os.path.isfile(dir+'/'+self.elastic_name+'.0001'):
-            print('The directory you supplied does not have a elastic.0001 file!!!')
+            print("The directory you supplied does not have a elastic.0001 file!!! \n If your elastic scan has a different name, please specify as: 'elastic_name'")
             return False
         elif not os.path.isfile(dir+'/'+self.nixs_name+'.0001'):
-            print("The directory you supplied does not have a NIXS.0001 file!!!\Your diretory must be in the correct format")
+            print("The directory you supplied does not have a NIXS.0001 file!!! \n If your raman scan has a different name, please specify as: 'NIXS_name'")
             return False
         elif not os.path.isfile(dir+'/'+self.wide_name+'.0001'):
             print("No wide scans found. Continuing...")
@@ -219,7 +219,7 @@ class Lerix:
                 h5group.create_dataset("signals",data=self.scans[scan_info[1]].signals)
                 h5group.create_dataset("errors",data=self.scans[scan_info[1]].errors)
                 h5group.create_dataset("cenoms",data=self.scans[scan_info[1]].cenom)
-                #h5group.create_dataset("resolutions",data=self.scans[scan_info[1]].resolution)
+                h5group.create_dataset("resolutions",data=self.scans[scan_info[1]].resolution)
             elif scan_info[2]=='NIXS':
                 scan_info = self.scan_info(file)
                 h5group = H5_xrs.create_group(scan_info[1])
@@ -243,15 +243,59 @@ class Lerix:
     ################################################################################
     def get_cenoms(self, scan_info):
         """Internal Function to get the centre of mass of the elastic peak and
-        the resolution of each analyer channel for each elastic scan using XRStools"""
+        the E0 for each elastic scan using XRStools"""
         cenom_list = []
         for analyzer in range(19): #The analyzer channels in the scan ASCII
-            self.scans[scan_info[1]].resolution = []
             self.scans[scan_info[1]].cenom.append(xrs_utilities.find_center_of_mass(self.scans[scan_info[1]].energy,self.scans[scan_info[1]].signals[:,analyzer]))
-            #self.scans[scan_info[1]].resolution.append(xrs_utilities.fwhm(self.scans[scan_info[1]].energy, self.scans[scan_info[1]].signals[:,analyzer]))
         cenom_list.append(self.scans[scan_info[1]].cenom)
         self.cenom = [sum(a)/len(a) for a in zip(*cenom_list)]
         self.E0 = np.mean(self.cenom)/1e3
+
+    def get_resolutions(self,scan_numbers):
+        """Internal function to get the average resolution of each analyzer and
+        average to give a self.resolution over the 19 analyzers"""
+        eloss_running_elastic = []
+        signals_running_elastic = []
+
+        if scan_numbers=='all':
+            chosen_scans = []
+            for number in range(len(self.elastic_scans)):
+                scan_info = self.scan_info(self.elastic_scans[number])
+                fn = scan_info[2]+scan_info[3]
+                chosen_scans.append(fn)
+        elif type(scan_numbers) is list:
+            scan_numbers[:] = [x - 1 for x in scan_numbers] #scan 1 will be the 0th item in the list
+            chosen_scans = []
+            for number in scan_numbers:
+                scan_info = self.scan_info(self.elastic_scans[number])
+                fn = scan_info[2]+scan_info[3]
+                chosen_scans.append(fn)
+        else:
+            print('scan numbers must be a list of the scans with correct length')
+            return
+
+        #populate lists with eloss and signals and then find the average over the whole range
+        for file in chosen_scans:
+            scan_info = self.scan_info(file)
+            eloss_running_elastic.append(self.scans[scan_info[1]].eloss)
+            signals_running_elastic.append(self.scans[scan_info[1]].signals)
+        eloss_avg = np.array([sum(a)/len(a) for a in zip(*eloss_running_elastic)])
+        signals_avg = np.array([sum(a)/len(a) for a in zip(*signals_running_elastic)])
+
+        #take these average values and find the average FWHM for each analyzer and then find the total average
+        for file in chosen_scans:
+            resolution = []
+            skipped = []
+            for analyzer in range(19):
+                try:
+                    resolution.append(xrs_utilities.fwhm(eloss_avg, signals_avg[:,analyzer])[0])
+                except:
+                    skipped.append(analyzer+1)
+                    continue
+        if len(skipped) > 1:
+            print("{} {}".format("Skipped resolution for analyzer/s: ", list(set(skipped))))
+
+        self.resolution = round(np.mean(resolution),3)
 
     def read_scans(self,dir,file,valid_elastic='True'):
         """Internal Function that reads the APS data using numpy and finds the cenoms for each elastic
@@ -264,6 +308,8 @@ class Lerix:
         self.scans[scan_info[1]].errors  = np.array(np.sqrt(np.absolute(self.scans[scan_info[1]].signals)))
         if scan_info[2]=='elastic':
             self.get_cenoms(scan_info)
+            for analyzer in range(19):
+                self.scans[scan_info[1]].eloss = np.subtract(self.scans[scan_info[1]].energy,self.scans[scan_info[1]].cenom[analyzer])
         elif scan_info[2]=='nixs':
             #create empty array with shape energy.v.signals
             eloss = np.zeros(self.scans[scan_info[1]].signals.shape)
@@ -310,14 +356,17 @@ class Lerix:
                 signals_running.append(self.scans[scan_info[1]].signals)
                 eloss_running.append(self.scans[scan_info[1]].eloss)
                 errors_running.append(self.scans[scan_info[1]].errors)
-
             self.energy = np.array([sum(a)/len(a) for a in zip(*energy_running)])
             self.signals = np.array([sum(a)/len(a) for a in zip(*signals_running)])
             self.eloss = np.array([sum(a)/len(a) for a in zip(*eloss_running)])
             self.errors = np.array([sum(a)/len(a) for a in zip(*errors_running)])
+
         else:
             print("scan_numbers must be blank, 'all' or a list of scan numbers e.g.[1,3,5]")
             sys.exit()
+
+        self.get_resolutions(scan_numbers)
+
     ################################################################################
     # Begin the reading
     ################################################################################
