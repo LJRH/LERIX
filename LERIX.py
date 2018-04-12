@@ -47,7 +47,7 @@ class Lerix:
         self.errors        = []
         #self.groups        = {}
         self.tth           = []
-        self.resolution    = []
+        self.resolution    = {}
         self.E0            = []
         self.cenom         = []
         self.cenom_dict    = {}
@@ -289,13 +289,15 @@ class Lerix:
             for analyzer in range(19):
                 try:
                     resolution.append(xrs_utilities.fwhm(eloss_avg, signals_avg[:,analyzer])[0])
+                    self.resolution['Analyzer%s'%analyzer] = resolution[analyzer]
                 except:
                     skipped.append(analyzer+1)
                     continue
         if len(skipped) > 1:
             print("{} {}".format("Skipped resolution for analyzer/s: ", list(set(skipped))))
 
-        self.resolution = round(np.mean(resolution),3)
+        self.resolution['Resolution'] = round(np.mean(resolution),2)
+
 
     def read_scans(self,dir,file,valid_elastic='True'):
         """Internal Function that reads the APS data using numpy and finds the cenoms for each elastic
