@@ -183,12 +183,23 @@ class Lerix:
             fn,fext = os.path.splitext(file_lc)
             if not file_lc.startswith('.'):
                     if fext.lstrip('.').isdigit():
-                        if file_lc.startswith(self.nixs_name) or file_lc.startswith(self.elastic_name) or file_lc.startswith(self.wide_name):
-                            dir_scans.append(file)
+                        if not os.stat(dir + '/' + file).st_size > 8000:
+                            print("{} {}".format(">> >> Warning!! skipped empty scan (<8KB): ", file))
+                            continue
+                        else:
+                            if file_lc.startswith(self.nixs_name):
+                                dir_scans.append(file)
+                            elif file_lc.startswith(self.elastic_name):
+                                dir_scans.append(file)
+                            elif file_lc.startswith(self.wide_name):
+                                dir_scans.append(file)
         sorted_dir = sorted(dir_scans, key=lambda x: os.path.splitext(x)[1])
         return sorted_dir
 
     def isValidDir(self,dir):
+        """Show that the scan directory is valid, that the directory holds a scan
+        with the correct elastic name, nixs name and then let the user know if it
+        has not found a wide scan. Returns True if valid directory."""
         if not os.path.isdir(dir):
             print('Check the directory you have supplied')
             return False
@@ -206,6 +217,9 @@ class Lerix:
 
 
     def write_H5scanData(self,dir,H5file,averaged='False'):
+        """Writes all the scan information into a H5 file named after the sample name. inside
+        this H5 directory scans are split into elastic and NIXS and the averaged scans. No support
+        yet for wide scans"""
         sample_name = os.path.basename(dir)
         g = H5file.create_group(sample_name) #H5 subgroup with the name of the sample
         H5_ela = g.create_group('elastic') #H5 subgroup for elastics
@@ -253,7 +267,8 @@ class Lerix:
 
     def get_resolutions(self,scan_numbers):
         """Internal function to get the average resolution of each analyzer and
-        average to give a self.resolution over the 19 analyzers"""
+        average to give a self.resolution over the 19 analyzers. Returns a Dictionary
+        of resolutions the mean and each analyser"""
         eloss_running_elastic = []
         signals_running_elastic = []
 
@@ -304,7 +319,11 @@ class Lerix:
         scan ready to be passed to read_nixs to get eloss"""
         scan_info = self.scan_info(file)
         analyzers = [range(19)]
-        scan_data = np.loadtxt(dir+'/'+file, comments='#')
+        try:
+            scan_data = np.loadtxt(dir+'/'+file, comments='#')
+        except:
+            print("{} {}".format("NumPy failed to load scan name: ", file))
+            pass
         self.scans[scan_info[1]].energy = np.array(scan_data[:,0]) #this format for np.repeat to work
         self.scans[scan_info[1]].signals = np.array(scan_data[:,5:24])
         self.scans[scan_info[1]].errors  = np.array(np.sqrt(np.absolute(self.scans[scan_info[1]].signals)))
@@ -443,7 +462,7 @@ class Lerix:
                 print("{} {}".format("Reading NIXS scan name: ", file))
                 self.read_scans(dir,file)
             elif not os.path.isfile(corresponding_elastic):
-                print("{} {} {}".format("\nWARNING:", scan_info[1],"has no corresponding elastic - finding eloss by average elastic values!"))
+                print("{} {} {}".format(">> >> WARNING:", scan_info[1],"has no corresponding elastic - finding eloss by average elastic values!"))
                 print("{} {}".format("Reading NIXS scan name: ", file))
                 self.read_scans(dir,file,valid_elastic='False')
 
@@ -463,10 +482,12 @@ class Lerix:
 
         print('Finished Reading!')
 
-"""IDEAS:
+"""To do:
 1) Check if the cenoms are close to the E0 specified in the ASCII header, and if not, do not average that scan_name
 2) Make the H5 file location more interactive and allow many different samples to be read into the H5file - e.g. check if it exists and if so
 write into it.
-3) read long scans
-4) implement FWHM
-5) Allow use to change the file type names"""
+3) read wide scans
+4) Header reading and H5 attributes
+5) Maybe a file size check to make sure the input file isn't crazy
+6) If file size is less than 5KB, then ignore it from the list
+"""
