@@ -176,7 +176,7 @@ class Lerix:
 
     def sort_dir(self, dir):
         """Returns a list of directory contents after filtering out scans without
-        the correct format e.g. 'elastic.0001, nixs.0001'"""
+        the correct format or size e.g. 'elastic.0001, nixs.0001 '"""
         dir_scans = []
         for file in os.listdir(dir):
             file_lc = str.lower(file)
@@ -185,6 +185,9 @@ class Lerix:
                     if fext.lstrip('.').isdigit():
                         if not os.stat(dir + '/' + file).st_size > 8000:
                             print("{} {}".format(">> >> Warning!! skipped empty scan (<8KB): ", file))
+                            continue
+                        elif not os.stat(dir + '/' + file).st_size < MAX_FILESIZE:
+                            print("{} {}".format(">> >> Warning!! skipped huge scan (>100MB): ", file))
                             continue
                         else:
                             if file_lc.startswith(self.nixs_name):
@@ -233,9 +236,7 @@ class Lerix:
                 h5group.create_dataset("signals",data=self.scans[scan_info[1]].signals)
                 h5group.create_dataset("errors",data=self.scans[scan_info[1]].errors)
                 h5group.create_dataset("cenoms",data=self.scans[scan_info[1]].cenom)
-                h5group.create_dataset("resolutions",data=self.scans[scan_info[1]].resolution)
-            elif scan_info[2]=='NIXS':
-                scan_info = self.scan_info(file)
+            elif scan_info[2]=='nixs':
                 h5group = H5_xrs.create_group(scan_info[1])
                 h5group.create_dataset("energy",data=self.scans[scan_info[1]].energy)
                 h5group.create_dataset("signals",data=self.scans[scan_info[1]].signals)
@@ -248,6 +249,7 @@ class Lerix:
         g.create_dataset("eloss",data=self.eloss)
         g.create_dataset("errors",data=self.errors)
         g.create_dataset("tth",data=self.tth)
+        g.create_dataset("Mean Resolutions", data=np.array(self.resolution.items()))
 
         #Never forget to close an open H5 file!!!
         H5file.close()
@@ -311,7 +313,7 @@ class Lerix:
         if len(skipped) > 1:
             print("{} {}".format("Skipped resolution for analyzer/s: ", list(set(skipped))))
 
-        self.resolution['Resolution'] = round(np.mean(resolution),2)
+        self.resolution['Resolution'] = round(np.mean(resolution),3)
 
 
     def read_scans(self,dir,file,valid_elastic='True'):
@@ -391,7 +393,7 @@ class Lerix:
     ################################################################################
     # Begin the reading
     ################################################################################
-    def load_scan(self,dir,nixs_name='NIXS',wide_name='wide',elastic_name='elastic',scan_numbers='all',H5=False):
+    def load_scan(self,dir,nixs_name='NIXS',wide_name='wide',elastic_name='elastic',scan_numbers='all',H5=False,H5path=None):
         """Function to load scan data from a typical APS 20ID Non-Resonant inelastic
         X-ray scattering experiment. With data in the form of elastic.0001, allign.0001
         and NIXS.0001. Function reteurns the averaged energy loss, signals, errors, E0
@@ -471,12 +473,22 @@ class Lerix:
 
         #if the user asks, call function to write all info to H5 file
         if H5:
-            H5_name = 'TEST.H5'
-            saveloc = dir+'/'+H5_name
-            # if os.path.isfile(saveloc):
-            #     H5file = h5py.File(saveloc, "a") #a for append?
-            # else:
-            H5file = h5py.File(saveloc, "w")
+            if H5path==None:
+                H5path = dir
+            elif H5path:
+                if os.path.isdir(H5path):
+                    H5path = H5path
+                else:
+                    print('H5 path directory does not exist!')
+
+            H5name = '20ID_APS_data.H5'
+            saveloc = H5path+'/'+H5name
+
+            if os.path.isfile(saveloc):
+                H5file = h5py.File(saveloc, "a")
+            else:
+                H5file = h5py.File(saveloc, "w")
+
             self.write_H5scanData(dir,H5file)
             print("{} {}".format("Wrote scan data to H5 file: ", saveloc))
 
