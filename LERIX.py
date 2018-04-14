@@ -41,7 +41,8 @@ class Lerix:
         self.wide_scans    = []
         self.wide_name     = 'wide'
         self.scan_name     = []
-
+        self.eloss_avg     = [] #elastic eloss average
+        self.signals_avg   = [] #elastic signals average used to plot analyzer resolutions at the end
         self.energy        = []
         self.signals       = []
         self.errors        = []
@@ -190,11 +191,11 @@ class Lerix:
                             print("{} {}".format(">> >> Warning!! skipped huge scan (>100MB): ", file))
                             continue
                         else:
-                            if file_lc.startswith(self.nixs_name):
+                            if fn==self.nixs_name:
                                 dir_scans.append(file)
-                            elif file_lc.startswith(self.elastic_name):
+                            elif fn==self.elastic_name:
                                 dir_scans.append(file)
-                            elif file_lc.startswith(self.wide_name):
+                            elif fn==self.wide_name:
                                 dir_scans.append(file)
         sorted_dir = sorted(dir_scans, key=lambda x: os.path.splitext(x)[1])
         return sorted_dir
@@ -278,15 +279,13 @@ class Lerix:
             chosen_scans = []
             for number in range(len(self.elastic_scans)):
                 scan_info = self.scan_info(self.elastic_scans[number])
-                fn = scan_info[2]+scan_info[3]
-                chosen_scans.append(fn)
+                chosen_scans.append(scan_info[4])
         elif type(scan_numbers) is list:
             scan_numbers[:] = [x - 1 for x in scan_numbers] #scan 1 will be the 0th item in the list
             chosen_scans = []
             for number in scan_numbers:
                 scan_info = self.scan_info(self.elastic_scans[number])
-                fn = scan_info[2]+scan_info[3]
-                chosen_scans.append(fn)
+                chosen_scans.append(scan_info[4])
         else:
             print('scan numbers must be a list of the scans with correct length')
             return
@@ -296,8 +295,8 @@ class Lerix:
             scan_info = self.scan_info(file)
             eloss_running_elastic.append(self.scans[scan_info[1]].eloss)
             signals_running_elastic.append(self.scans[scan_info[1]].signals)
-        eloss_avg = np.array([sum(a)/len(a) for a in zip(*eloss_running_elastic)])
-        signals_avg = np.array([sum(a)/len(a) for a in zip(*signals_running_elastic)])
+        self.eloss_avg = np.array([sum(a)/len(a) for a in zip(*eloss_running_elastic)])
+        self.signals_avg = np.array([sum(a)/len(a) for a in zip(*signals_running_elastic)])
 
         #take these average values and find the average FWHM for each analyzer and then find the total average
         for file in chosen_scans:
@@ -305,14 +304,13 @@ class Lerix:
             skipped = []
             for analyzer in range(19):
                 try:
-                    resolution.append(xrs_utilities.fwhm(eloss_avg, signals_avg[:,analyzer])[0])
+                    resolution.append(xrs_utilities.fwhm(self.eloss_avg, self.signals_avg[:,analyzer])[0])
                     self.resolution['Analyzer%s'%analyzer] = resolution[analyzer]
                 except:
                     skipped.append(analyzer+1)
                     continue
         if len(skipped) > 1:
             print("{} {}".format("Skipped resolution for analyzer/s: ", list(set(skipped))))
-
         self.resolution['Resolution'] = round(np.mean(resolution),3)
 
 
@@ -333,7 +331,7 @@ class Lerix:
             self.get_cenoms(scan_info)
             for analyzer in range(19):
                 self.scans[scan_info[1]].eloss = np.subtract(self.scans[scan_info[1]].energy,self.scans[scan_info[1]].cenom[analyzer])
-        elif scan_info[2]=='nixs':
+        elif scan_info[2]=='nixs' or scan_info[2]=='wide':
             #create empty array with shape energy.v.signals
             eloss = np.zeros(self.scans[scan_info[1]].signals.shape)
             self.scans[scan_info[1]].tth = list(range(9,180,9)) #assign tth to each scan
@@ -388,8 +386,6 @@ class Lerix:
             print("scan_numbers must be blank, 'all' or a list of scan numbers e.g.[1,3,5]")
             sys.exit()
 
-        self.get_resolutions(scan_numbers)
-
     ################################################################################
     # Begin the reading
     ################################################################################
@@ -416,6 +412,7 @@ class Lerix:
         number_of_scans = len(glob.glob(dir+'/'+self.nixs_name+'*'))-1 #number of nixs scans
         self.elastic_scans = []
         self.nixs_scans = []
+        self.wide_scans = []
         #self.keys = {"eloss":np.array, "energy":np.array, "signals":np.array, "errors":np.array,"E0":np.float, "tth":np.array} #,"resolution":array }
 
         #split scans into NIXS and elastic and begin instance of XRStools scan class for each scan
@@ -445,15 +442,14 @@ class Lerix:
                     continue
 
         #read elastic scans first to calculate cenom
-        #if there isn't a corresponing nixs file - don't bother
+        # reading all the elastics in the file to improve E0 accuracy and get a
+        # good grasp on the scan resolution
         for file in self.elastic_scans:
             scan_info = self.scan_info(file)
-            corresponding_nixs = dir+'/'+self.nixs_name+scan_info[3]
-            if os.path.isfile(corresponding_nixs):
-                print("{} {}".format("Reading elastic scan name: ", file))
-                self.read_scans(dir,file)
-            else:
-                continue
+            print("{} {}".format("Reading elastic scan named: ", file))
+            self.read_scans(dir,file)
+
+        print('I always read all the Elastic scans to improve Resolution and E0 Accuracy\n >> Type <class>.resolution to see the analyzer resolutions.')
 
         #Read NIXS scans - if there isn't a corresponing elastic scan, subtract the
         #running average cenoms and tell the user.
@@ -465,11 +461,17 @@ class Lerix:
                 self.read_scans(dir,file)
             elif not os.path.isfile(corresponding_elastic):
                 print("{} {} {}".format(">> >> WARNING:", scan_info[1],"has no corresponding elastic - finding eloss by average elastic values!"))
-                print("{} {}".format("Reading NIXS scan name: ", file))
+                print("{} {}".format("Reading NIXS scan named: ", file))
                 self.read_scans(dir,file,valid_elastic='False')
+
+        for file in self.wide_scans:
+            scan_info = self.scan_info(file)
+            print("{} {}".format("Reading wide scan named: ", file))
+            self.read_scans(dir,file)
 
         #call function to calculate the average values over the scans - all by default
         self.average_scans(scan_numbers)
+        self.get_resolutions(scan_numbers)
 
         #if the user asks, call function to write all info to H5 file
         if H5:
@@ -492,14 +494,38 @@ class Lerix:
             self.write_H5scanData(dir,H5file)
             print("{} {}".format("Wrote scan data to H5 file: ", saveloc))
 
+        #Quick and dirty plot of all analyzer with a resolution less than 1eV
+        from matplotlib import pyplot as plt
+        # find channels with resolution < 1.0 e.g. not noise
+        good_channels = []
+        for analyzer in self.resolution:
+            if analyzer.startswith('Analyzer'):
+                if self.resolution[analyzer] < 1.0:
+                    good_channels.append(int(analyzer.lstrip('Analyzer'))-1)
+        plt.clf()
+        plt.subplot(2, 1, 1)
+        plt.plot(self.eloss, np.average(self.signals[:,good_channels],axis=1), label='19 analyzer average')
+        plt.title('X-ray Raman data from 20ID APS with resolution <1.0eV')
+        plt.ylabel('S(q,w)')
+        plt.xlabel('Energy Loss (eV)')
+        plt.subplot(2, 1, 2)
+        for analyzer in range(19):
+            analyser = analyzer + 1 #real analyzer number
+            plt.plot(self.eloss_avg, self.signals_avg[:,analyzer], label='Analyzer%01d'%analyser)
+        plt.xlabel('Energy Loss (eV)')
+        plt.ylabel('Average Intensity')
+        plt.show()
+
+
+        #let the user know the program has finished
         print('Finished Reading!')
 
 """To do:
 1) Check if the cenoms are close to the E0 specified in the ASCII header, and if not, do not average that scan_name
 2) Make the H5 file location more interactive and allow many different samples to be read into the H5file - e.g. check if it exists and if so
-write into it.
-3) read wide scans
+write into it. DONE
+3) read wide scans - Proving hard, can't do this until I've fixed the header attrbs reading, to pull out the NIXS scan region
 4) Header reading and H5 attributes
-5) Maybe a file size check to make sure the input file isn't crazy
-6) If file size is less than 5KB, then ignore it from the list
+5) Maybe a file size check to make sure the input file isn't crazy - DONE
+6) If file size is less than 5KB, then ignore it from the list - DONE
 """
