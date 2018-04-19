@@ -219,6 +219,73 @@ class Lerix:
         else:
             return True
 
+    def plot_data(self,analyzer=False):
+        import matplotlib.pyplot as plt
+        #matplotlib.use('Qt4Agg')
+        from matplotlib.widgets import CheckButtons
+
+        channels = []
+        for analyzer in self.resolution:
+            if analyzer.startswith('Analyzer'):
+                if self.resolution[analyzer] < 1.0:
+                    channels.append(int(analyzer.lstrip('Analyzer'))-1)
+
+        data = np.average(self.signals[:,channels],axis=1)
+
+        fig, ax = plt.subplots()
+        l0, = ax.plot(self.eloss, data, lw=2)
+        plt.subplots_adjust(left=0.2)
+
+        rax = plt.axes([0.02, 0.1, 0.15, 0.75])
+        check = CheckButtons(rax, ('Analyzer1', 'Analyzer2', 'Analyzer3','Analyzer4','Analyzer5',
+        'Analyzer6','Analyzer7','Analyzer8','Analyzer9','Analyzer10','Analyzer11','Analyzer12'
+        ,'Analyzer13','Analyzer14','Analyzer15','Analyzer16','Analyzer17','Analyzer18','Analyzer19'),
+        (False, False, False, False, False, False, False, False, False, False, False, False, False
+        ,False,False,False,False,False,False))
+
+
+        def func(label):
+            is_checked = []
+            analyzers = {('Analyzer1',0), ('Analyzer2',1), ('Analyzer3',2),('Analyzer4',3),('Analyzer5',4),
+            ('Analyzer6',5),('Analyzer7',6),('Analyzer8',7),('Analyzer9',8),('Analyzer10',9),('Analyzer11',10),('Analyzer12',11)
+            ,('Analyzer13',12),('Analyzer14',13),('Analyzer15',14),('Analyzer16',15),('Analyzer17',16),('Analyzer18',17),('Analyzer19',18)}
+            for analyzer,ii in analyzers:
+                if label == analyzer:
+                    is_checked.append(ii)
+                    print(is_checked)
+                    l0.set_ydata(np.average(self.signals[:,is_checked],axis=1))
+                    plt.draw()
+
+        check.on_clicked(func)
+        plt.show()
+
+
+
+
+
+        # if analyzer==False:
+        # #Quick and dirty plot of all analyzer with a resolution less than 1eV
+        # # find channels with resolution < 1.0 e.g. not noise
+        # good_channels = []
+        # for analyzer in self.resolution:
+        #     if analyzer.startswith('Analyzer'):
+        #         if self.resolution[analyzer] < 1.0:
+        #             good_channels.append(int(analyzer.lstrip('Analyzer'))-1)
+        # elif
+        # plt.clf()
+        # plt.subplot(2, 1, 1)
+        # plt.plot(self.eloss, np.average(self.signals[:,good_channels],axis=1), label='19 analyzer average')
+        # plt.title('X-ray Raman data from 20ID APS with resolution <1.0eV')
+        # plt.ylabel('S(q,w)')
+        # plt.xlabel('Energy Loss (eV)')
+        # plt.subplot(2, 1, 2)
+        # for analyzer in range(19):
+        #     analyser = analyzer + 1 #real analyzer number
+        #     plt.plot(self.eloss_avg, self.signals_avg[:,analyzer], label='Analyzer%01d'%analyser)
+        # plt.xlabel('Energy Loss (eV)')
+        # plt.ylabel('Average Intensity')
+        # plt.show()
+
 
     def write_H5scanData(self,dir,H5file,averaged='False'):
         """Writes all the scan information into a H5 file named after the sample name. inside
@@ -493,29 +560,6 @@ class Lerix:
 
             self.write_H5scanData(dir,H5file)
             print("{} {}".format("Wrote scan data to H5 file: ", saveloc))
-
-        #Quick and dirty plot of all analyzer with a resolution less than 1eV
-        from matplotlib import pyplot as plt
-        # find channels with resolution < 1.0 e.g. not noise
-        good_channels = []
-        for analyzer in self.resolution:
-            if analyzer.startswith('Analyzer'):
-                if self.resolution[analyzer] < 1.0:
-                    good_channels.append(int(analyzer.lstrip('Analyzer'))-1)
-        plt.clf()
-        plt.subplot(2, 1, 1)
-        plt.plot(self.eloss, np.average(self.signals[:,good_channels],axis=1), label='19 analyzer average')
-        plt.title('X-ray Raman data from 20ID APS with resolution <1.0eV')
-        plt.ylabel('S(q,w)')
-        plt.xlabel('Energy Loss (eV)')
-        plt.subplot(2, 1, 2)
-        for analyzer in range(19):
-            analyser = analyzer + 1 #real analyzer number
-            plt.plot(self.eloss_avg, self.signals_avg[:,analyzer], label='Analyzer%01d'%analyser)
-        plt.xlabel('Energy Loss (eV)')
-        plt.ylabel('Average Intensity')
-        plt.show()
-
 
         #let the user know the program has finished
         print('Finished Reading!')
