@@ -4,7 +4,7 @@ from __future__ import print_function
 
 import os, sys, re, time, h5py, glob
 import numpy as np
-from XRStools import xrs_utilities, xrs_scans
+from XRStools import xrs_utilities, xrs_scans #xrs_scans used to make a scan group for XRStools and utilities used to find centre of gaussians
 from  dateutil.parser import parse as dateparse
 
 TINY = 1.e-7
@@ -32,7 +32,9 @@ class Lerix:
 
     def __init__(self):
         self.scans         = {}
-        self.keys          = {}
+        self.key           = {'Analyzer1':0, 'Analyzer2':1, 'Analyzer3':2,'Analyzer4':3,'Analyzer5':4,
+                            'Analyzer6':5,'Analyzer7':6,'Analyzer8':7,'Analyzer9':8,'Analyzer10':9,'Analyzer11':10,'Analyzer12':11
+                            ,'Analyzer13':12,'Analyzer14':13,'Analyzer15':14,'Analyzer16':15,'Analyzer17':16,'Analyzer18':17,'Analyzer19':18}
 
         self.elastic_scans = []
         self.elastic_name  = 'elastic'
@@ -46,6 +48,7 @@ class Lerix:
         self.energy        = []
         self.signals       = []
         self.errors        = []
+        self.chosen_analyzers = [] #inserted later to save a list of the chosen analyzers after using .plot_data() save function
         #self.groups        = {}
         self.tth           = []
         self.resolution    = {}
@@ -219,20 +222,68 @@ class Lerix:
         else:
             return True
 
+    # def plot_data(self,analyzer=False):
+    #     """<classObj>.plot_data() Function that can be called to plot the eloss
+    #     data for each channel and build an average by clicking a button.
+    #     Works, but Requires matplotlib >2.1 for get_status function"""
+    #
+    #     import matplotlib.pyplot as plt
+    #     from matplotlib.widgets import CheckButtons, Cursor
+    #
+    #     channels = []
+    #     for analyzer in self.resolution:
+    #         if analyzer.startswith('Analyzer'):
+    #             if self.resolution[analyzer] < 1.0:
+    #                 channels.append(int(analyzer.lstrip('Analyzer'))-1)
+    #
+    #     data = np.average(self.signals[:,channels],axis=1)
+    #
+    #     fig, ax = plt.subplots()
+    #     ax.plot(self.eloss, data, lw=2)
+    #     ax.set_xlabel('Energy Loss (eV)')
+    #     ax.set_title('Plotting Raman Analysers')
+    #     plt.subplots_adjust(left=0.3)
+    #
+    #     rax = plt.axes([0.02, 0.1, 0.2, 0.8])
+    #     check = CheckButtons(rax, ('Analyzer1', 'Analyzer2', 'Analyzer3','Analyzer4','Analyzer5',
+    #     'Analyzer6','Analyzer7','Analyzer8','Analyzer9','Analyzer10','Analyzer11','Analyzer12'
+    #     ,'Analyzer13','Analyzer14','Analyzer15','Analyzer16','Analyzer17','Analyzer18','Analyzer19'),
+    #     (False, False, False, False, False, False, False, False, False, False, False, False, False
+    #     ,False,False,False,False,False,False))
+    #
+    #     def func(label):
+    #         is_checked = []
+    #         on = check.get_status()
+    #         for ii in range(19):
+    #             if on[ii]:
+    #                 is_checked.append(ii)
+    #                 #errors.append(np.average(noodle.errors[:,ii],axis=0))
+    #         data = np.average(self.signals[:,is_checked],axis=1)
+    #         ax.clear()
+    #         ax.plot(self.eloss, data, lw=2)
+    #         ax.autoscale(True)
+    #         ax.set_xlabel('Energy Loss (eV)')
+    #         ax.set_title('Plotting Raman Analysers')
+    #         plt.draw()
+    #         cursor = Cursor(ax, useblit=False, color='red', linewidth=2)
+    #         plt.show()
+    #         #print("{} {}".format("Average Error: ", ))
+    #
+    #     check.on_clicked(func)
+    #     plt.show()
+
     def plot_data(self,analyzer=False):
         """<classObj>.plot_data() Function that can be called to plot the eloss
         data for each channel and build an average by clicking a button.
-        Requires matplotlib >2.1"""
-
+        Does not require matplotlib >2.1"""
         import matplotlib.pyplot as plt
-        from matplotlib.widgets import CheckButtons, Cursor
+        from matplotlib.widgets import CheckButtons, Button, Cursor
 
         channels = []
         for analyzer in self.resolution:
             if analyzer.startswith('Analyzer'):
                 if self.resolution[analyzer] < 1.0:
                     channels.append(int(analyzer.lstrip('Analyzer'))-1)
-
         data = np.average(self.signals[:,channels],axis=1)
 
         fig, ax = plt.subplots()
@@ -241,41 +292,74 @@ class Lerix:
         ax.set_title('Plotting Raman Analysers')
         plt.subplots_adjust(left=0.3)
 
-        rax = plt.axes([0.02, 0.1, 0.2, 0.8])
-        check = CheckButtons(rax, ('Analyzer1', 'Analyzer2', 'Analyzer3','Analyzer4','Analyzer5',
+        checkbuttonaxis = plt.axes([0.02, 0.15, 0.2, 0.8])
+        anlabels, anvals = ('Analyzer1', 'Analyzer2', 'Analyzer3','Analyzer4','Analyzer5',
         'Analyzer6','Analyzer7','Analyzer8','Analyzer9','Analyzer10','Analyzer11','Analyzer12'
-        ,'Analyzer13','Analyzer14','Analyzer15','Analyzer16','Analyzer17','Analyzer18','Analyzer19'),
-        (False, False, False, False, False, False, False, False, False, False, False, False, False
-        ,False,False,False,False,False,False))
+        ,'Analyzer13','Analyzer14','Analyzer15','Analyzer16','Analyzer17','Analyzer18','Analyzer19'), (False,)*19
+        anstates = dict(zip(anlabels,anvals))
+        analyzers = CheckButtons(checkbuttonaxis, anlabels, anvals)
 
+        buttonaxis = plt.axes([0.01, 0.01, 0.3, 0.09])
+        bStatus  = Button(buttonaxis,'Save averaged Analyzers')
 
-        def func(label):
+        def onclick(label):
+            anstates[label] = not anstates[label]
+            print('un'*(not anstates[label]) + 'checked %s' %label)
+            func()
+
+        def savebutton(val):
+            import pandas as pd
             is_checked = []
-            on = check.get_status()
-            for ii in range(19):
-                if on[ii]:
-                    is_checked.append(ii)
-                    #errors.append(np.average(noodle.errors[:,ii],axis=0))
+            for ii in anlabels:
+                if anstates[ii]:
+                    is_checked.append(self.key[ii])
+            #what I would like to do here is to overwrite the averaged scans for earlier average_scans() but for now:
+            if not is_checked:
+                print('please select some analyzers to average')
+            else:
+                self.chosen_analyzers = is_checked
+                print('selected analyzers (using python counting!): ', self.chosen_analyzers)
+                data_signals = np.average(self.signals[:,is_checked],axis=1)
+                data_errors = np.average(self.errors[:,is_checked],axis=1)
+                df = zip(self.eloss,data_signals,data_errors)
+                df = pd.DataFrame(df, columns=['eloss','signals','errors'])
+                #print(df)
+                file_save(df)
+
+        def file_save(df):
+            import sys, pandas
+            from PyQt4.QtGui import QApplication, QWidget, QFileDialog
+            w = QWidget()
+            filename = str(QFileDialog.getSaveFileName(w, 'Save Analyzer Average','Result.csv'))
+            print('Saved as: ',filename)
+            df.to_csv(filename,sep=',',na_rep='nan')
+
+
+        def func():
+            is_checked = []
+            for ii in anlabels:
+                if anstates[ii]:
+                    is_checked.append(self.key[ii])
             data = np.average(self.signals[:,is_checked],axis=1)
             ax.clear()
             ax.plot(self.eloss, data, lw=2)
+            cursor = Cursor(ax, useblit=False, color='red', linewidth=2)
             ax.autoscale(True)
             ax.set_xlabel('Energy Loss (eV)')
             ax.set_title('Plotting Raman Analysers')
             plt.draw()
-            cursor = Cursor(ax, useblit=False, color='red', linewidth=2)
-            #print("{} {}".format("Average Error: ", ))
 
-        check.on_clicked(func)
+
+        bStatus.on_clicked(savebutton)
+        analyzers.on_clicked(onclick)
+        cursor = Cursor(ax, useblit=False, color='red', linewidth=2)
         plt.show()
 
-
-    def write_H5scanData(self,dir,H5file,averaged='False'):
+    def write_H5scanData(self,dir,H5file,H5name,averaged='False'):
         """Writes all the scan information into a H5 file named after the sample name. inside
         this H5 directory scans are split into elastic and NIXS and the averaged scans. No support
         yet for wide scans"""
-        sample_name = os.path.basename(dir)
-        g = H5file.create_group(sample_name) #H5 subgroup with the name of the sample
+        g = H5file.create_group(H5name) #H5 subgroup with the name of the sample
         H5_ela = g.create_group('elastic') #H5 subgroup for elastics
         H5_xrs = g.create_group('XRS')     #H5 subgroup for NIXS
         all_scans = self.elastic_scans+self.nixs_scans
@@ -414,7 +498,6 @@ class Lerix:
             self.signals = np.array([sum(a)/len(a) for a in zip(*signals_running)])
             self.eloss = np.array([sum(a)/len(a) for a in zip(*eloss_running)])
             self.errors = np.array([sum(a)/len(a) for a in zip(*errors_running)])
-
         elif type(scan_numbers) is list:
             scan_numbers[:] = [x - 1 for x in scan_numbers] #scan 1 will be the 0th item in the list
             chosen_scans = []
@@ -431,7 +514,6 @@ class Lerix:
             self.signals = np.array([sum(a)/len(a) for a in zip(*signals_running)])
             self.eloss = np.array([sum(a)/len(a) for a in zip(*eloss_running)])
             self.errors = np.array([sum(a)/len(a) for a in zip(*errors_running)])
-
         else:
             print("scan_numbers must be blank, 'all' or a list of scan numbers e.g.[1,3,5]")
             sys.exit()
@@ -439,7 +521,7 @@ class Lerix:
     ################################################################################
     # Begin the reading
     ################################################################################
-    def load_scan(self,dir,nixs_name='NIXS',wide_name='wide',elastic_name='elastic',scan_numbers='all',H5=False,H5path=None):
+    def load_scan(self,dir,nixs_name='NIXS',wide_name='wide',elastic_name='elastic',scan_numbers='all',H5=False,H5path=None,H5_sample_name=None):
         """Function to load scan data from a typical APS 20ID Non-Resonant inelastic
         X-ray scattering experiment. With data in the form of elastic.0001, allign.0001
         and NIXS.0001. Function reteurns the averaged energy loss, signals, errors, E0
@@ -513,7 +595,6 @@ class Lerix:
                 print("{} {} {}".format(">> >> WARNING:", scan_info[1],"has no corresponding elastic - finding eloss by average elastic values!"))
                 print("{} {}".format("Reading NIXS scan named: ", file))
                 self.read_scans(dir,file,valid_elastic='False')
-
         for file in self.wide_scans:
             scan_info = self.scan_info(file)
             print("{} {}".format("Reading wide scan named: ", file))
@@ -533,7 +614,13 @@ class Lerix:
                 else:
                     print('H5 path directory does not exist!')
 
-            H5name = '20ID_APS_data.H5'
+            if  not H5_sample_name:
+                H5name = '20ID_APS_data.H5'
+            elif H5_sample_name:
+                H5name = H5_sample_name
+            else:
+                print('H5 sample name was not accepted')
+
             saveloc = H5path+'/'+H5name
 
             if os.path.isfile(saveloc):
@@ -541,7 +628,7 @@ class Lerix:
             else:
                 H5file = h5py.File(saveloc, "w")
 
-            self.write_H5scanData(dir,H5file)
+            self.write_H5scanData(dir,H5file,H5name)
             print("{} {}".format("Wrote scan data to H5 file: ", saveloc))
 
         #let the user know the program has finished
