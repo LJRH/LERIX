@@ -289,6 +289,7 @@ class Lerix:
         fig, ax = plt.subplots()
         ax.plot(self.eloss, data, lw=2)
         ax.set_xlabel('Energy Loss (eV)')
+        ax.set_ylabel('S(q,w) [1/eV]')
         ax.set_title('Plotting Raman Analysers')
         plt.subplots_adjust(left=0.3)
 
@@ -333,7 +334,14 @@ class Lerix:
             filename = str(QFileDialog.getSaveFileName(w, 'Save Analyzer Average','Result.csv'))
             print('Saved as: ',filename)
             df.to_csv(filename,sep=',',na_rep='nan')
-
+            # def main():
+            #     app = QApplication(sys.argv)
+            #     ex = filedialogdemo()
+            #     ex.show()
+            #     sys.exit(app.exec_())
+            #
+            # if __name__ == '__main__':
+            #     main()
 
         def func():
             is_checked = []
@@ -642,4 +650,13 @@ write into it. DONE
 4) Header reading and H5 attributes
 5) Maybe a file size check to make sure the input file isn't crazy - DONE
 6) If file size is less than 5KB, then ignore it from the list - DONE
+
+Code to deal with the wide scans issue:
+Thinking that this should be done after nixs/elastics are read in
+# gives boolean index of where these conditions are True i.e. True outside of high-res region
+idx = (self.scans['wide0001'].eloss > self.eloss.min())*(self.scans['wide0001'].eloss < self.eloss.max())
+#this line then deletes the values in the ndarray in the high-res region
+tb = np.delete(self.scans['wide0001'].eloss,np.where(idx),None)
+#inserting self.eloss into the deleted gap
+np.insert(tb,np.where(idx)[0][0],self.eloss)
 """

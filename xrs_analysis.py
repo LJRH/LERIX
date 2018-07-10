@@ -12,13 +12,14 @@ from XRStools import xrs_read, roifinder_and_gui, xrs_extraction
 #######################################################################
 # USER INPUTS - ALWAYS CHANGE PATH & SAMPLE NAME
 #######################################################################
-sample_name = 'soil-DC2-MI' #name of the sample for saving
-path = 'D:/DATA/XRS/20ID-APS/Final/Nov2017/soil-DC2-MI/' #folder containing the LERIX files
-nixs_name='NIXS'
+sample_name = 'graphite' #name of the sample for saving
+#path = 'D:/DATA/XRS/20ID-APS/Final/Nov2017/graphite/' #folder containing the LERIX files
+path = '/Users/lukehiggins/OneDrive - University of Leeds/_HIGGINS-PhD_/__XAS__/__RAW-DATA__/20ID-APS/Other/NaBicarb'
+H5=False #boolean, write a H5 file containing the data?
+nixs_name='c-k'
 wide_name='wide'
 elastic_name='elastic' #chosen name for elastic scans
 scan_numbers='all' #'all' or a list of the scans [0,1,2]
-H5=True #boolean, write a H5 file containing the data?
 ########################################################################################################
 noodle = LERIX.Lerix()
 noodle.load_scan(path,nixs_name,wide_name,elastic_name,scan_numbers,H5,path,sample_name)
@@ -34,10 +35,12 @@ noodle.plot_data() #chooses which analyzers we want to put into XRStools by savi
 following lines manually. Then Once you have a good fit to the edge using the Hartree Fock method"""
 noodle_ex = xrs_extraction.edge_extraction(noodle,['C'],[1.0],{'C':['K']})
 noodle_ex.analyzerAverage(noodle.chosen_analyzers, errorweighing=False) #uncomment!
-noodle_ex.LERIX_HFextraction('C','K',[260.0,280.0],[295.0,400.0],weights=[2,1],HFcore_shift=8.0,scaling=1.79)
+#noodle_ex.LERIX_HFextraction('C','K',[260.0,280.0],[295.0,400.0],weights=[2,1],HFcore_shift=8.0,scaling=1.79)
+
+#noodle_ex.removeCorePearsonAv('C','K',[260.0,280.0],[295.0,400.0],weights=[2,1],HFcore_shift=8.0,scaling=3)
 
 #Saving - need to create a directory called 'fit_data'
-directory = path+'extracted_data/'
-if not os.path.exists(directory):
-    os.makedirs(directory)
-noodle_ex.save_average_Sqw(directory+sample_name+'_'+str(noodle.chosen_analyzers)+'.dat', emin=0.0, emax=395.0, normrange=[280.,400.])
+#directory = path+'extracted_data/'
+# if not os.path.exists(directory):
+#     os.makedirs(directory)
+# noodle_ex.save_average_Sqw(directory+sample_name+'_'+str(noodle.chosen_analyzers)+'.dat', emin=0.0, emax=395.0, normrange=[280.,400.])
