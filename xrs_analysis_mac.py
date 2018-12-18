@@ -13,8 +13,8 @@ from XRStools import xrs_read, roifinder_and_gui, xrs_extraction
 # USER INPUTS - ALWAYS CHANGE PATH & SAMPLE NAME
 #######################################################################
 sample_name = 'DC1-MI' #name of the sample for saving
-path = 'D:/DATA/XRS/20ID-APS/Final/Nov2017/Soil-DC1-MI/' #folder containing the LERIX files
-#path = '/Users/lukehiggins/OneDrive - University of Leeds/_HIGGINS-PhD_/__XAS__/__RAW-DATA__/20ID-APS/Other/NaBicarb'
+#path = 'D:/DATA/XRS/20ID-APS/Final/Nov2017/Soil-DC1-MI/' #folder containing the LERIX files
+path = '/Users/lukehiggins/OneDrive - University of Leeds/_HIGGINS-PhD_/__XAS__/__RAW-DATA__/20ID-APS/Final/Nov2017/Graphite'
 H5=False #boolean, write a H5 file containing the data?
 nixs_name='nixs'
 wide_name='wide'

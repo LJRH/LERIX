@@ -43,25 +43,30 @@ class Lerix:
         self.wide_scans    = []
         self.wide_name     = 'wide'
         self.scan_name     = []
+        self.sample_name   = []
         self.eloss_avg     = [] #elastic eloss average
         self.signals_avg   = [] #elastic signals average used to plot analyzer resolutions at the end
         self.energy        = []
         self.signals       = []
         self.errors        = []
-        self.chosen_analyzers = [] #inserted later to save a list of the chosen analyzers after using .plot_data() save function
-        #self.groups        = {}
+        self.is_checked    = [] #inserted later to save a list of the chosen analyzers after using .plot_data() save function
         self.tth           = []
         self.resolution    = {}
         self.E0            = []
         self.cenom         = []
         self.cenom_dict    = {}
 
+################################################################################
+# Get Ascii Info - parse a file and return the key details
+################################################################################
+    # check that the filename is valid
     def isValidName(self,filename):
-        "input is a valid name"
         if filename in RESERVED_WORDS:
             return False
             tnam = filename[:].lower()
             return NAME_MATCH(tnam) is not None
+        else:
+            return True
 
     def fixName(self,filename, allow_dot=True):
         "try to fix string to be a valid name"
@@ -106,6 +111,7 @@ class Lerix:
         fh = open(fn, 'r')
         text = fh.read()
         text = text.replace('\r\n', '\n').replace('\r', '\n').split('\n')
+        print(text)
         _labelline = None
         ncol = None
         data, footers, headers = [], [], []
@@ -222,56 +228,6 @@ class Lerix:
         else:
             return True
 
-    # def plot_data(self,analyzer=False):
-    #     """<classObj>.plot_data() Function that can be called to plot the eloss
-    #     data for each channel and build an average by clicking a button.
-    #     Works, but Requires matplotlib >2.1 for get_status function"""
-    #
-    #     import matplotlib.pyplot as plt
-    #     from matplotlib.widgets import CheckButtons, Cursor
-    #
-    #     channels = []
-    #     for analyzer in self.resolution:
-    #         if analyzer.startswith('Analyzer'):
-    #             if self.resolution[analyzer] < 1.0:
-    #                 channels.append(int(analyzer.lstrip('Analyzer'))-1)
-    #
-    #     data = np.average(self.signals[:,channels],axis=1)
-    #
-    #     fig, ax = plt.subplots()
-    #     ax.plot(self.eloss, data, lw=2)
-    #     ax.set_xlabel('Energy Loss (eV)')
-    #     ax.set_title('Plotting Raman Analysers')
-    #     plt.subplots_adjust(left=0.3)
-    #
-    #     rax = plt.axes([0.02, 0.1, 0.2, 0.8])
-    #     check = CheckButtons(rax, ('Analyzer1', 'Analyzer2', 'Analyzer3','Analyzer4','Analyzer5',
-    #     'Analyzer6','Analyzer7','Analyzer8','Analyzer9','Analyzer10','Analyzer11','Analyzer12'
-    #     ,'Analyzer13','Analyzer14','Analyzer15','Analyzer16','Analyzer17','Analyzer18','Analyzer19'),
-    #     (False, False, False, False, False, False, False, False, False, False, False, False, False
-    #     ,False,False,False,False,False,False))
-    #
-    #     def func(label):
-    #         is_checked = []
-    #         on = check.get_status()
-    #         for ii in range(19):
-    #             if on[ii]:
-    #                 is_checked.append(ii)
-    #                 #errors.append(np.average(noodle.errors[:,ii],axis=0))
-    #         data = np.average(self.signals[:,is_checked],axis=1)
-    #         ax.clear()
-    #         ax.plot(self.eloss, data, lw=2)
-    #         ax.autoscale(True)
-    #         ax.set_xlabel('Energy Loss (eV)')
-    #         ax.set_title('Plotting Raman Analysers')
-    #         plt.draw()
-    #         cursor = Cursor(ax, useblit=False, color='red', linewidth=2)
-    #         plt.show()
-    #         #print("{} {}".format("Average Error: ", ))
-    #
-    #     check.on_clicked(func)
-    #     plt.show()
-
     def plot_data(self,analyzer=False):
         """<classObj>.plot_data() Function that can be called to plot the eloss
         data for each channel and build an average by clicking a button.
@@ -285,78 +241,58 @@ class Lerix:
                 if self.resolution[analyzer] < 1.0:
                     channels.append(int(analyzer.lstrip('Analyzer'))-1)
         data = np.average(self.signals[:,channels],axis=1)
-
         fig, ax = plt.subplots()
         ax.plot(self.eloss, data, lw=2)
         ax.set_xlabel('Energy Loss (eV)')
         ax.set_ylabel('S(q,w) [1/eV]')
         ax.set_title('Plotting Raman Analysers')
         plt.subplots_adjust(left=0.3)
-
         checkbuttonaxis = plt.axes([0.02, 0.15, 0.2, 0.8])
-        anlabels, anvals = ('Analyzer1', 'Analyzer2', 'Analyzer3','Analyzer4','Analyzer5',
-        'Analyzer6','Analyzer7','Analyzer8','Analyzer9','Analyzer10','Analyzer11','Analyzer12'
-        ,'Analyzer13','Analyzer14','Analyzer15','Analyzer16','Analyzer17','Analyzer18','Analyzer19'), (False,)*19
+        anlabels, anvals = list(self.key), (False,)*len(list(self.key))
         anstates = dict(zip(anlabels,anvals))
         analyzers = CheckButtons(checkbuttonaxis, anlabels, anvals)
-
         buttonaxis = plt.axes([0.01, 0.01, 0.3, 0.09])
-        bStatus  = Button(buttonaxis,'Save averaged Analyzers')
+        bStatus  = Button(buttonaxis,'Save Averaged Analyzers')
 
         def onclick(label):
+            """Tell the user what they have clicked - also good for de-bugging
+            """
             anstates[label] = not anstates[label]
             print('un'*(not anstates[label]) + 'checked %s' %label)
             func()
 
         def savebutton(val):
             import pandas as pd
-            is_checked = []
-            for ii in anlabels:
-                if anstates[ii]:
-                    is_checked.append(self.key[ii])
-            #what I would like to do here is to overwrite the averaged scans for earlier average_scans() but for now:
-            if not is_checked:
-                print('please select some analyzers to average')
-            else:
-                self.chosen_analyzers = is_checked
-                print('selected analyzers (using python counting!): ', self.chosen_analyzers)
-                data_signals = np.average(self.signals[:,is_checked],axis=1)
-                data_errors = np.average(self.errors[:,is_checked],axis=1)
-                df = zip(self.eloss,data_signals,data_errors)
-                df = pd.DataFrame(df, columns=['eloss','signals','errors'])
-                #print(df)
-                file_save(df)
-
-        def file_save(df):
-            import sys, pandas
+            import sys
             from PyQt4.QtGui import QApplication, QWidget, QFileDialog
-            w = QWidget()
-            filename = str(QFileDialog.getSaveFileName(w, 'Save Analyzer Average','Result.csv'))
-            print('Saved as: ',filename)
-            df.to_csv(filename,sep=',',na_rep='nan')
-            # def main():
-            #     app = QApplication(sys.argv)
-            #     ex = filedialogdemo()
-            #     ex.show()
-            #     sys.exit(app.exec_())
-            #
-            # if __name__ == '__main__':
-            #     main()
+            if not self.is_checked:
+                print('please select your chosen analysers first!')
+            else:
+                print('selected analysers (python counting):  ', self.is_checked)
+                save_signals = np.average(self.signals[:,self.is_checked],axis=1)
+                save_errors = np.average(self.errors[:,self.is_checked],axis=1)
+                df = pd.DataFrame(list(zip(self.eloss,save_signals,save_errors)), columns=['eloss','signals','errors'])
+                print(df)
+                try:
+                    w = QWidget() #bug 'start a Qapp before a QPaintDevice py36 mac'
+                    filename = str(QFileDialog.getSaveFileName(w, 'Save Analyzer Average','Result.csv'))
+                    df.to_csv(filename,sep=',',na_rep='nan')
+                    print('Saved as: ',filename)
+                except:
+                    print("{} {}".format(">> Warning >>", "file save was unsuccessful"))
 
         def func():
-            is_checked = []
+            ax.clear()
+            self.is_checked = []
             for ii in anlabels:
                 if anstates[ii]:
-                    is_checked.append(self.key[ii])
-            data = np.average(self.signals[:,is_checked],axis=1)
-            ax.clear()
-            ax.plot(self.eloss, data, lw=2)
+                    self.is_checked.append(self.key[ii])
+            ax.plot(self.eloss, np.average(self.signals[:,self.is_checked],axis=1),lw=2)
             cursor = Cursor(ax, useblit=False, color='red', linewidth=2)
             ax.autoscale(True)
             ax.set_xlabel('Energy Loss (eV)')
             ax.set_title('Plotting Raman Analysers')
             plt.draw()
-
 
         bStatus.on_clicked(savebutton)
         analyzers.on_clicked(onclick)
@@ -467,7 +403,7 @@ class Lerix:
             print("{} {}".format("NumPy failed to load scan name: ", file))
             pass
         self.scans[scan_info[1]].energy = np.array(scan_data[:,0]) #this format for np.repeat to work
-        self.scans[scan_info[1]].signals = np.array(scan_data[:,5:24])
+        self.scans[scan_info[1]].signals = np.array(scan_data[:,5:24]) #read the ASCII to find correct columns
         self.scans[scan_info[1]].errors  = np.array(np.sqrt(np.absolute(self.scans[scan_info[1]].signals)))
         if scan_info[2]=='elastic':
             self.get_cenoms(scan_info)
@@ -529,19 +465,20 @@ class Lerix:
     ################################################################################
     # Begin the reading
     ################################################################################
-    def load_scan(self,dir,nixs_name='NIXS',wide_name='wide',elastic_name='elastic',scan_numbers='all',H5=False,H5path=None,H5_sample_name=None):
+    def load_scan(self,dir,nixs_name='NIXS',wide_name='wide',elastic_name='elastic',scan_numbers='all',H5=False,H5path=None,sample_name=None):
         """Function to load scan data from a typical APS 20ID Non-Resonant inelastic
         X-ray scattering experiment. With data in the form of elastic.0001, allign.0001
         and NIXS.0001. Function reteurns the averaged energy loss, signals, errors, E0
         and 2theta angles for the scans in the chosen directory."""
 
+        #make sure the user inputs are all lower case for easy reading
         self.nixs_name = str.lower(nixs_name)
         self.wide_name = str.lower(wide_name)
         self.elastic_name = str.lower(elastic_name)
 
         #check dir location
         if not self.isValidDir(dir):
-            print('IO Error - sorry about that!')
+            print("{} {}".format(">> >> WARNING: ", "IO Error - check the directory name you have given"))
             sys.exit()
         else:
             pass
@@ -622,10 +559,12 @@ class Lerix:
                 else:
                     print('H5 path directory does not exist!')
 
-            if  not H5_sample_name:
-                H5name = '20ID_APS_data.H5'
-            elif H5_sample_name:
-                H5name = H5_sample_name
+            if  not sample_name:
+                self.sample_name = '20ID_APS_data.H5'
+                H5name = self.sample_name
+            elif sample_name:
+                self.sample_name = sample_name
+                H5name = self.sample_name
             else:
                 print('H5 sample name was not accepted')
 
@@ -642,7 +581,7 @@ class Lerix:
         #let the user know the program has finished
         print('Finished Reading!')
 
-"""To do:
+"""To do list:
 1) Check if the cenoms are close to the E0 specified in the ASCII header, and if not, do not average that scan_name
 2) Make the H5 file location more interactive and allow many different samples to be read into the H5file - e.g. check if it exists and if so
 write into it. DONE
@@ -650,6 +589,9 @@ write into it. DONE
 4) Header reading and H5 attributes
 5) Maybe a file size check to make sure the input file isn't crazy - DONE
 6) If file size is less than 5KB, then ignore it from the list - DONE
+7) Read ASCII column headings to make sure that correct columns are being read
+8) Read ASCII headers as a saveable Info string for the USER
+9) WIDE SCANS!!!
 
 Code to deal with the wide scans issue:
 Thinking that this should be done after nixs/elastics are read in
