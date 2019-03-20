@@ -179,16 +179,18 @@ def get_col_headers(header):
         col_headers.append(i.strip('_'))
     return(col_headers)
 
-f = open(widedat, "r") #read starts here
-text = f.read()
-text = text.replace('\r\n', '\n').replace('\r', '\n').split('\n')
-data = {}
-headers, dat, footers = separate_infile(text)
-try:
-    dat = [map(list,zip(*dat))[i][::-1] for i in range(len(dat[1]))] # this function does the inverse ([::-1]) transposition of the dat object, doesn't seem to work in windows
-except:
-    dat = [list(map(list,zip(*dat)))[i][::-1] for i in range(len(dat[1]))]
-dat = np.array(dat,dtype='float64')
-for i in range(len(dat)):
-    data[get_col_headers(strip_headers(headers))[i]] = dat[i]
-header_attrs = pull_id20attrs(strip_headers(headers))
+def read_20ID(file):
+    f = open(file, "r") #read starts here
+    text = f.read()
+    text = text.replace('\r\n', '\n').replace('\r', '\n').split('\n')
+    data = {}
+    headers, dat, footers = separate_infile(text)
+    try:
+        dat = [map(list,zip(*dat))[i][::-1] for i in range(len(dat[1]))] # this function does the inverse ([::-1]) transposition of the dat object, doesn't seem to work in windows
+    except:
+        dat = [list(map(list,zip(*dat)))[i][::-1] for i in range(len(dat[1]))]
+    dat = np.array(dat,dtype='float64')
+    for i in range(len(dat)):
+        data[get_col_headers(strip_headers(headers))[i]] = dat[i]
+    header_attrs = pull_id20attrs(strip_headers(headers))
+    return(data, header_attrs)

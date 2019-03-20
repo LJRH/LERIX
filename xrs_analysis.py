@@ -13,7 +13,7 @@ from XRStools import xrs_read, roifinder_and_gui, xrs_extraction
 # USER INPUTS - ALWAYS CHANGE PATH & SAMPLE NAME
 #######################################################################
 sample_name = 'DC1-MI' #name of the sample for saving
-path = 'D:/DATA/XRS/20ID-APS/Final/Nov2017/Soil-DC1-MI/' #folder containing the LERIX files
+path = 'D:/DATA/XRS/20ID-APS/Final/Nov2017/BC-Oak-450/' #folder containing the LERIX files
 #path = '/Users/lukehiggins/OneDrive - University of Leeds/_HIGGINS-PhD_/__XAS__/__RAW-DATA__/20ID-APS/Other/NaBicarb'
 H5=False #boolean, write a H5 file containing the data?
 nixs_name='nixs'
@@ -22,7 +22,7 @@ elastic_name='elastic' #chosen name for elastic scans
 scan_numbers='all' #'all' or a list of the scans [0,1,2]
 ########################################################################################################
 noodle = LERIX.Lerix()
-noodle.load_scan(path,nixs_name,wide_name,elastic_name,scan_numbers,H5,path,sample_name)
+noodle.load_experiment(path,nixs_name,wide_name,elastic_name,scan_numbers,H5,path,sample_name)
 noodle.plot_data() #chooses which analyzers we want to put into XRStools by saving a csv file
 
 # set scaling - used when a wide scan is implemented, but LERIX can't do this yet
