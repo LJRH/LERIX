@@ -684,9 +684,7 @@ write into it. DONE
 8) Read ASCII headers as a saveable Info string for the USER DONE
 9) WIDE SCANS!!!
 10) Merge read_scans and readscan_20ID into one callable function that returns a XRStools Scan object with header attributes DONE
-11) Scan_info to print the header_attrs -> scan_info to become a once stop shop for users to know the details of their scan
-
-THERE IS AN ISSUE WITH Resolutions module - mean of empty slice, skips resolution for all analyzers
+11) Scan_info to print the header_attrs -> scan_info to become a once stop shop for users to know the details of their scan DONE
 
 Code to deal with the wide scans issue:
 Thinking that this should be done after nixs/elastics are read in
